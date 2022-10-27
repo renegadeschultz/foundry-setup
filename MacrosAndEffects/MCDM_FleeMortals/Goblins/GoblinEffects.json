@@ -1,0 +1,10 @@
+{
+    "goblinCursespitter": {
+        "toxicTouch": {
+            "flags.midi-qol.OverTime": "turn=end,saveAbility=con,saveDC=12,saveMagic=true,label=Toxic Touch"
+        },
+        "dizzyingHex": {
+            "flags.midi-qol.OverTime": "turn=end,saveDC=12,saveAbility=wis"
+        }
+    }
+}
