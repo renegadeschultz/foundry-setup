@@ -237,3 +237,61 @@ const fogCloud = async (args) => {
 
     Hooks.on("deleteTile", deleteHook);
 }
+
+// Automated Evocation - Exact Macro Name Should be: AE_Companion_Macro(Mage Hand)
+const mageHand = async (args) => {
+    let { assignedActor, summon, spellLevel, duplicates } = args[0];
+
+    const current = canvas.scene.tokens.getName(`${summon.name}(${assignedActor.name})`);
+
+    if (current) {
+        await warpgate.dismiss(current.id, canvas.scene.id);
+    }
+
+    return {
+        token: {
+            "name": `${summon.name}(${assignedActor.name})`
+        }
+    }
+}
+
+// Automated Evocation - Exact Macro Name Should be: AE_Companion_Macro(Spiritual Weapon)
+const spiritualWeapon = async (args) => {
+    let { assignedActor, summon, spellLevel, duplicates } = args[0];
+
+    if (!assignedActor) {
+        return;
+    }
+
+    const current = canvas.scene.tokens.getName(`${summon.name}(${assignedActor.name})`);
+
+    if (current) {
+        await warpgate.dismiss(current.id, canvas.scene.id);
+    }
+
+    return {
+        token: {
+            "name": `${summon.name}(${assignedActor.name})`
+        },
+        embedded: {
+            Item: {
+                "Strike": {
+                    "img": "icons/magic/fire/dagger-rune-enchant-flame-purple.webp",
+                    "type": "weapon",
+                    "system.weaponType": "natural",
+                    "system.equipped": true,
+                    "system.actionType": "msak",
+                    "system.activation.type": 'special',
+                    "system.activation.cost": 1,
+                    "system.duration.units": "inst",
+                    "system.range.value": 5,
+                    "system.range.units": "ft",
+                    "system.target.value": 1,
+                    "system.target.type": "creature",
+                    "system.attackBonus": assignedActor.system.attributes.prof + assignedActor.system.abilities[assignedActor.system.attributes.spellcasting].mod,
+                    "system.damage.parts": [[`${Math.floor(spellLevel / 2)}d8+${assignedActor.system.abilities[assignedActor.system.attributes.spellcasting].mod}`, "force"]],
+                }
+            }
+        }
+    }
+}
