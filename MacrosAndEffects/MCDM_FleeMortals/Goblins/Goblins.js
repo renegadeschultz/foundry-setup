@@ -20,92 +20,38 @@ const backstab = async (args) => {
 }
 
 // Goblin Assassin - Summon Shadows
-const setupShadowTile = async () => {
-
-    let darknessTiles = canvas.tiles.tiles.filter(t => t.document?.texture?.src && t.document?.texture?.src.includes("Darkness"));
-
-    for (let tile of darknessTiles) {
-        await tile.document.update(
-            {
-                'flags.monks-active-tiles': {
-                    "active": true,
-                    "record": false,
-                    "restriction": "all",
-                    "controlled": "all",
-                    "trigger": "both",
-                    "allowpaused": true,
-                    "usealpha": false,
-                    "pointer": false,
-                    "pertoken": false,
-                    "minrequired": 0,
-                    "chance": 100,
-                    "fileindex": 0,
-                    "actions": [
-                        {
-                            "action": "activeeffect",
-                            "data": {
-                                "entity": {
-                                    "id": "token",
-                                    "name": "Triggering Token"
-                                },
-                                "effectid": "Convenient Effect: Blinded",
-                                "addeffect": "toggle",
-                                "altereffect": ""
-                            }, "id": "jYj7xTVQ4eht7kUS"
-                        },
-                        {
-                            "action": "activeeffect",
-                            "data": {
-                                "entity": {
-                                    "id": "tagger:shadowSight",
-                                    "match": "all",
-                                    "scene": "_active",
-                                    "name": "<i class=\"fas fa-tag fa-sm\"></i> shadowSight"
-                                },
-                                "effectid": "Convenient Effect: Blinded",
-                                "addeffect":
-                                    "remove",
-                                "altereffect": ""
-                            },
-                            "id": "6gPrgaoLg2CKXz6b"
-                        },
-                        {
-                            "action": "showhide",
-                            "data": {
-                                "entity": {
-                                    "id": "token",
-                                    "name": "Triggering Token"
-                                },
-                                "collection": "tokens",
-                                "hidden": "toggle",
-                                "fade": 0
-                            },
-                            "id": "whLe4Lzqhjqj1VVr"
-                        },
-                        {
-                            "action": "activeeffect",
-                            "data": {
-                                "entity": {
-                                    "id": "token",
-                                    "name": "Triggering Token"
-                                },
-                                "effectid": "Convenient Effect: Invisible",
-                                "addeffect": "toggle",
-                                "altereffect": ""
-                            },
-                            "id": "B35s52ujYhp8om2A"
-                        }
-                    ],
-                    "files": []
-                }
-            });
+const summonShadows = async  () => {
+    const createHook = async (tile) => {
+        const flags = { 
+          "perfect-vision": { 
+             enabled: true, 
+             globalLight: {enabled: false}, 
+             visionLimitation: {enabled: true, sight: 0, detection: {basicSight: 0} }
+           }
+         };
+    
+         await game.macros.getName('DrawCircle').execute({
+          shrink: 40, 
+          diameter: 20, 
+          x: tile.x, 
+          y: tile.y, 
+          text: tile.id,
+          flags: flags
+         });
+      ui.notifications.info('Tiles have been setup');
     }
-
-    ui.notifications.info('Tiles have been setup');
-}
-
-const summonShadowsItemMacro = async  () => {
-    Tagger.addTags(canvas.tokens.controlled[0], "shadowSight")
+    
+    Hooks.once("createTile", createHook);
+    
+    const deleteHook = async (tile) => {
+       const drawing = [...canvas.scene.drawings].find(x => x.text === tile.id);
+       if(drawing) {
+         await canvas.scene.deleteEmbeddedDocuments("Drawing", [drawing.id]);
+         Hooks.off("deleteTile", deleteHook);   
+       }
+    }
+    
+    Hooks.on("deleteTile", deleteHook);
 }
 
 // Goblin Cursespitter - To Me
@@ -265,8 +211,7 @@ const getInHere = async () => {
 export {
     backstab,
     sniper,
-    setupShadowTile,
-    summonShadowsItemMacro,
+    summonShadows,
     toMe,
     minionGroupAttack,
     minionTinyStabs,
