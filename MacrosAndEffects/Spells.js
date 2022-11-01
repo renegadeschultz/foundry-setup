@@ -269,6 +269,17 @@ const spiritualWeapon = async (args) => {
         await warpgate.dismiss(current.id, canvas.scene.id);
     }
 
+    // Delete spriritual weapon token when active effect is deleted
+    const onEndSpell = async (args) => {
+        if(args.label === summon.name && args.parent.name === assignedActor.name) {
+           let token = canvas.scene.tokens.getName(`${args.label}(${args.parent.name})`)
+           await warpgate.dismiss(token.id, canvas.scene.id);
+           Hooks.off("deleteActiveEffect", onEndSpell );
+        }
+    }
+
+    Hooks.on("deleteActiveEffect", onEndSpell );
+
     return {
         token: {
             "name": `${summon.name}(${assignedActor.name})`
