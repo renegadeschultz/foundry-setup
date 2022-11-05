@@ -271,14 +271,14 @@ const spiritualWeapon = async (args) => {
 
     // Delete spriritual weapon token when active effect is deleted
     const onEndSpell = async (args) => {
-        if(args.label === summon.name && args.parent.name === assignedActor.name) {
-           let token = canvas.scene.tokens.getName(`${args.label}(${args.parent.name})`)
-           await warpgate.dismiss(token.id, canvas.scene.id);
-           Hooks.off("deleteActiveEffect", onEndSpell );
+        if (args.label === summon.name && args.parent.name === assignedActor.name) {
+            let token = canvas.scene.tokens.getName(`${args.label}(${args.parent.name})`)
+            await warpgate.dismiss(token.id, canvas.scene.id);
+            Hooks.off("deleteActiveEffect", onEndSpell);
         }
     }
 
-    Hooks.on("deleteActiveEffect", onEndSpell );
+    Hooks.on("deleteActiveEffect", onEndSpell);
 
     return {
         token: {
@@ -305,4 +305,129 @@ const spiritualWeapon = async (args) => {
             }
         }
     }
+}
+
+// ItemMacro - Call before the item is rolled
+const silence = async () => {
+    const createHook = async (tile) => {
+        await tile.update({
+            'flags.monks-active-tiles': {
+                "active": true,
+                "record": false,
+                "restriction": "all",
+                "controlled": "all",
+                "trigger": "both",
+                "allowpaused": false,
+                "usealpha": false,
+                "pointer": false,
+                "pertoken": false,
+                "minrequired": 0,
+                "chance": 100,
+                "fileindex": 0,
+                "actions": [{
+                    "action": "activeeffect",
+                    "data": {
+                        "entity": {
+                            "id": "token",
+                            "name": "Triggering Token"
+                        },
+                        "effectid": "Convenient Effect: Silence",
+                        "addeffect": "toggle",
+                        "altereffect": ""
+                    },
+                    "id": "kHnKLoozUVFMOamG"
+                }],
+                "files": []
+            }
+        });
+    }
+
+    Hooks.once("createTile", createHook);
+}
+
+// ItemMacro - Call before the item is rolled
+const sleetStorm = async (args) => {
+    let workflow = MidiQOL.Workflow.getWorkflow(args[0].uuid);
+    const spellDC = workflow.actor.system.attributes.spelldc;
+    const createHook = async (tileEnter) => {
+        await tileEnter.update(
+            {
+                "flags.monks-active-tiles": {
+                    "active": true,
+                    "record": false,
+                    "restriction": "all",
+                    "controlled": "all",
+                    "trigger": "enter",
+                    "allowpaused": false,
+                    "usealpha": false,
+                    "pointer": false,
+                    "pertoken": false,
+                    "minrequired": 0,
+                    "chance": 100,
+                    "fileindex": -1,
+                    "actions": [
+                        {
+                            "action": "monks-tokenbar.requestroll",
+                            "data": {
+                                "entity": {
+                                    "id": "token",
+                                    "name": "Triggering Token"
+                                },
+                                "request": "ability:dex",
+                                "dc": spellDC,
+                                "flavor": "Trying not to slip",
+                                "rollmode": "roll",
+                                "silent": true,
+                                "fastforward": true,
+                                "usetokens": "fail",
+                                "continue": "failed"
+                            },
+                            "id": "eZErRLCh1S1LkzJL"
+                        },
+                        {
+                            "action": "activeeffect",
+                            "data": {
+                                "entity": {
+                                    "id": "token",
+                                    "name": "Triggering Token"
+                                },
+                                "effectid": "Convenient Effect: Prone",
+                                "addeffect": "add",
+                                "altereffect": ""
+                            },
+                            "id": "Bc7wo5mMx0AdluPV"
+                        }
+                    ],
+                    "files": []
+                }
+            }
+        );
+    }
+    Hooks.once("createTile", createHook);
+}
+
+// ItemMacro - Before Damage Roll
+const destructiveWave = async (args) => {
+    let item = await fromUuid(args[0].uuid);
+    let damageType = await new Promise((resolve) => {
+        new Dialog({
+            title: item.name,
+            content: `<form class="flexcol">
+            <div class="form-group">
+            <label for="damageSelect">Pick one:</label>
+            <select id="damageSelect"><option value="necrotic">Necrotic</option><option value="radiant">Radiant</option></select>
+            </div>
+            </form>`,
+            buttons: {
+                use: {
+                    label: "Select", callback: async (html) => {
+                        resolve(html.find("#damageSelect")[0].value);
+                    }
+                }
+            },
+            default: "Select"
+        }).render(true);
+    });
+    item.system.damage.parts[1][0] = `5d6[${damageType}]`;
+    item.system.damage.parts[1][1] = damageType;
 }
