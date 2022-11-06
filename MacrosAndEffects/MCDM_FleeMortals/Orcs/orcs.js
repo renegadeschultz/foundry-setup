@@ -150,7 +150,7 @@ const haymakerGreataxe = async () => {
 
     if (hasEffectApplied) {
         let workflow = MidiQOL.Workflow.getWorkflow(args[0].uuid);
-        workflow = await game.macros.getName('Adjust_Damage').execute(workflow, "1d12+6", "2d12+6");
+        workflow = await game.macros.getName('Adjust Damage').execute({ workflow, newDamage: "1d12+6"});
     }
 }
 
