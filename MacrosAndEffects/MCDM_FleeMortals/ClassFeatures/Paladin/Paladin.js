@@ -64,3 +64,48 @@ const divineSmite = async (args) => {
 
     return { damageRoll: `${totalDice}d8[radiant]`, flavor: "Divine Smite" };
 }
+
+// ItemMacro - After Active Effects
+const harnessDivinePower = async (args) => {
+    const maxSpellLevel = Math.ceil(args[0].actor.system.attributes.prof / 2);
+
+    // Check if there are spell slots to recover
+    if (!args[0].actor.system.spells.spell1.slotsAvailable
+        && (maxSpellLevel < 2 || !args[0].actor.system.spells.spell2.slotsAvailable)
+        && (maxSpellLevel < 3 || !args[0].actor.system.spells.spell2.slotsAvailable)
+    ) {
+        return;
+    }
+
+    let recover = await new Promise((resolve) => {
+        new Dialog({
+            title: "Spell Level to Recover",
+            content: `<form class="flexcol">
+            <div class="form-group">
+            <label for="spellLevel">Spell Level:</label>
+            <select id="spellLevel">
+                ${args[0].actor.system.spells.spell1.value < args[0].actor.system.spells.spell1.max ? "<option value=\"1\">1st</option>" : ""}
+                ${maxSpellLevel >= 2 && args[0].actor.system.spells.spell2.value < args[0].actor.system.spells.spell2.max ? "<option value=\"2\">2nd</option>" : ""}
+                ${maxSpellLevel >= 3 && args[0].actor.system.spells.spell3.value < args[0].actor.system.spells.spell3.max ? "<option value=\"3\">3rd</option>" : ""}
+            </select>
+            </div>
+            </form>`,
+            buttons: {
+                smite: {
+                    label: "Recover",
+                    callback: (html) => { resolve(html.find("#spellLevel")[0].value); }
+                },
+            },
+            default: "Recover",
+            close: () => { resolve(false); }
+        }).render(true);
+    });
+
+    if (!recover) {
+        return;
+    }
+
+    // Recover spell slot    
+    let currentSlots = args[0].actor.system.spells[`spell${recover}`].value;
+    args[0].actor.update({ [`system.spells.spell${recover}.value`]: currentSlots + 1 });
+}

@@ -431,3 +431,338 @@ const destructiveWave = async (args) => {
     item.system.damage.parts[1][0] = `5d6[${damageType}]`;
     item.system.damage.parts[1][1] = damageType;
 }
+
+// ItemMacro - After Active Effects
+const absorbElements = async (args) => {
+    try {
+        let tactor;
+        let itemName = args[0].itemData.name;
+        if (args[0].tokenUuid) tactor = (await fromUuid(args[0].tokenUuid)).actor;
+        else tactor = game.actors.get(args[0].actorId);
+
+        let dialog = new Promise((resolve, reject) => {
+            new Dialog({
+                title: 'Choose a damage type',
+                content: `
+            <form class="flexcol">
+              <div class="form-group">
+                <select id="element">
+                  <option value="acid">Acid</option>
+                  <option value="cold">Cold</option>
+                  <option value="fire">Fire</option>
+                  <option value="lightning">Lightning</option>
+                  <option value="thunder">Thunder</option>
+                </select>
+              </div>
+            </form>
+          `,
+                //select element type
+                buttons: {
+                    yes: {
+                        icon: '<i class="fas fa-bolt"></i>',
+                        label: 'Select',
+                        callback: async (html) => {
+                            let element = html.find('#element').val();
+                            let effect = tactor.effects.find(i => i.label === itemName);
+                            let changes = duplicate(effect.changes);
+                            changes[0].value = `${args[0].spellLevel}d6[${element}]`;
+                            changes[1].value = `${args[0].spellLevel}d6[${element}]`;
+                            await effect.update({ changes });
+                            effect = tactor.effects.find(i => i.label === `${itemName} Resistance`);
+                            changes = duplicate(effect.changes);
+                            changes[0].value = element;
+                            await effect.update({ changes });
+
+                            const casterToken = await fromUuid(args[0].tokenUuid);
+                            let color = 'blue';
+                            if (element === 'acid') {
+                                color = 'green'
+                            }
+                            else if (element === 'fire') {
+                                color = 'red'
+                            }
+                            else if (element === 'lightning') {
+                                color = 'purple'
+                            }
+                            else if (element === 'thunder') {
+                                color = 'yellow'
+                            }
+
+                            new Sequence()
+                                .effect()
+                                .file("jb2a.extras.tmfx.runes.circle.inpulse.abjuration")
+                                .atLocation(casterToken)
+                                .duration(4500)
+                                .fadeIn(500)
+                                .fadeOut(500)
+                                .scaleToObject(2)
+                                .opacity(0.3)
+                                .filter("Glow", { color: 0xffffff })
+                                .scaleIn(0, 500, { ease: "easeOutCubic", delay: 100 })
+                                .effect()
+                                .file("jb2a.extras.tmfx.border.circle.inpulse.02.normal")
+                                .fadeIn(500)
+                                .fadeOut(500)
+                                .duration(4500)
+                                .scaleToObject(2)
+                                .atLocation(casterToken)
+                                .belowTokens()
+                                .effect()
+                                .file(`jb2a.shield.01.outro_explode.${color}`)
+                                .fadeIn(500)
+                                .fadeOut(100)
+                                .atLocation(casterToken)
+                                .waitUntilFinished(-500)
+                                .scaleToObject(2)
+                                .play();
+                            resolve();
+                        },
+                    },
+                }
+            }).render(true);
+        })
+        await dialog;
+    } catch (err) {
+        console.error(`${itemName} - Absorb Elements`, err);
+    }
+}
+
+// ItemMacro - Called before the item is rolled
+const heroism = (args) => {
+    const onEndHeroism = async (args) => {
+        if (args.label === "Heroism") {
+            args.parent.system.attributes.hp.temp = null;
+            Hooks.off("deleteActiveEffect", onEndHeroism);
+        }
+    }
+
+    Hooks.on("deleteActiveEffect", onEndHeroism);
+}
+
+// ItemMacro - After Active Effects
+const protectionFromEvilAndGood = (args) => {
+    const ontargeting = async (args) => {
+        try {
+            // Check for targets
+            if (args.targets.size < 1) return;
+
+            if (!["mwak", "rwak", "msak", "rsak"].includes(args.item.system.actionType)) return {};
+
+            let tActor = Array.from(args.targets)[0].actor;
+
+            // If target has PFEG effect and the attacker is one of the specified types, make attack at disadvantage
+            if (tActor.effects.contents.find(el => el.label == "Protection from Evil and Good" && !el.isSuppressed)) {
+                let aActor = args.actor;
+                if (aActor.type != "character" && ["aberration", "celestial", "elemental", "fey", "fiend", "undead"].includes(aActor.system.details.type.value)) {
+                    args.disadvantage = true;
+                }
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    // Clean up hooks when spell ends
+    const onEndPFEG = async (args) => {
+        if (args.label === "Protection from Evil and Good") {
+            console.log("Ending Effect");
+            Hooks.off("midi-qol.preambleComplete", ontargeting);
+            Hooks.off("deleteActiveEffect", onEndPFEG);
+        }
+    }
+
+    Hooks.on("midi-qol.preambleComplete", ontargeting);
+    Hooks.on("deleteActiveEffect", onEndPFEG);
+
+}
+
+
+// Item Macro - After Active Effects
+// Setup - Remove Damage Formula and add Other Formula as 1d4+1
+const magicMissile = async (args) => {
+    let workflow = MidiQOL.Workflow.getWorkflow(args[0].uuid);
+    let targets = [...workflow.targets]
+    let mmCount = 2 + workflow.itemLevel;
+    let targetRows = "";
+    targets.forEach((target, index) => {
+        const targetName = target.document.name;
+        let row = `<tr>
+                        <td>
+                            <label for="target${index}">
+                                ${targetName}
+                            </label>
+                        </td>
+                        <td><input type="number" id="target${index}" />
+                        </td>
+                    </tr>`
+        targetRows = `${targetRows}${row}`;
+    })
+    let totalCount = 0;
+    let warning = "";
+    let targetingData;
+    while (totalCount != mmCount) {
+        targetingData = await new Promise((resolve) => {
+            new Dialog({
+                title: "Magic Missile Targeting",
+                content: `<p  style="color:red">${warning}</p>
+            <p>You have <strong>${mmCount}</strong> Magic Missiles</p>
+            <table>
+                <form>
+                    ${targetRows}
+                </form>
+            </table>`,
+                buttons: {
+                    smite: {
+                        label: "Fire!",
+                        callback: (html) => {
+                            let targetting = targets.map((_, index) => {
+                                let count = parseInt(html.find(`#target${index}`)[0].value);
+                                return isNaN(count) ? 0 : count;
+                            })
+                            resolve(targetting);
+                        }
+                    }
+                },
+                default: "Fire!",
+                close: () => { resolve(false); }
+            }).render(true);
+        });
+        totalCount = 0;
+        totalCount = targetingData.reduce(
+            (previousValue, currentValue) => previousValue + currentValue,
+            totalCount
+        );
+        if (totalCount !== mmCount) {
+            warning = "Incorrect Missile Total!"
+        }
+    }
+    await targets.forEach(async (target, index) => {
+        let targetIsShielded = target.actor.effects.contents.find(el => el.label == "Shield" && !el.isSuppressed);
+        let amountOnTarget = targetingData[index];
+        new Sequence()
+            .effect()
+            .atLocation(workflow.token)
+            .stretchTo(target)
+            .file("jb2a.magic_missile")
+            .repeats(amountOnTarget, 200, 300)
+            .randomizeMirrorY()
+            .play();
+        for (let i = 0; i < amountOnTarget; i++) {
+            let roll = new Roll(!targetIsShielded ? workflow.item.system.formula : "0");
+            let damageTotal = await roll.roll().total;
+            await new MidiQOL.DamageOnlyWorkflow(
+                workflow.actor,
+                workflow.token,
+                damageTotal,
+                "force",
+                [target],
+                roll,
+                { flavor: `Magic Missile fired at ${target.document.name}${targetIsShielded ? " is block by Shield" : ""}!` }
+            );
+        }
+    });
+}
+
+// ItemMacro - After Active Effects
+const mirrorImage = async (args) => {
+    let workflow = MidiQOL.Workflow.getWorkflow(args[0].uuid);
+    let effect = workflow.actor.effects.contents.find(el => el.sourceName == "Mirror Image");
+
+    const updateStacks = async (effect, stacks) => {
+        await effect.setFlag("dae", "stacks", stacks);
+        await effect.update({label: `Mirror Image (${stacks})`});
+    }
+
+    const ontargeting = async (args) => {
+        try {
+            // Check for targets
+            if (args.targets.size < 1) return;
+
+            if (!["mwak", "rwak", "msak", "rsak"].includes(args.item.system.actionType)) return {};
+
+            // Ignore Mirror Image if attacker is not relying on normal vision for attack
+            let tActor = Array.from(args.targets)[0].actor;
+            const cornerAdjust = 0.70710678118654750;
+            const distanceToTarget = new Ray(args.token, Array.from(args.targets)[0]).distance;
+            const approxFtToTarget = Math.floor(distanceToTarget*cornerAdjust/canvas.grid.size)*canvas.grid.grid.options.dimensions.distance;
+            if(args.actor.system.attributes.senses.blindsight >= approxFtToTarget
+                 || args.actor.system.attributes.senses.tremorsense >= approxFtToTarget
+                 || args.actor.system.attributes.senses.truesight >= approxFtToTarget
+                 ||  args.actor.effects.contents.find(el => el.label == "Blinded")) {
+                    await ChatMessage.create({
+                        speaker: ChatMessage.getSpeaker({ actor: tActor }),
+                        rollMode: game.settings.get('core', 'rollMode'),
+                        flavor: "Mirror Image Result",
+                        content: "Attacker Does not rely on sight! Mirror Image has no effect!"
+                      });
+                      console.log("Attacker Does not rely on sight! Mirror Image has no effect!")
+                    return;
+            }
+
+            let effect = tActor.effects.contents.find(el => el.sourceName == "Mirror Image");
+            if (effect) {
+                let stacks = effect.flags.dae.stacks;
+                let roll = await new Roll("1d20").roll();
+                await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: tActor }), flavor: "Mirror Image" });
+                if(stacks === 3) {
+                    if(roll.total >= 6) {
+                        await ChatMessage.create({
+                            speaker: ChatMessage.getSpeaker({ actor: tActor }),
+                            rollMode: game.settings.get('core', 'rollMode'),
+                            flavor: "Mirror Image Result",
+                            content: "Mirror Image Blocks Attack! 2 Mirror Images Left"
+                          });
+                        await updateStacks(effect, 2);
+                        return false;
+                    }
+                }
+                else if(stacks === 2) {
+                    if(roll.total >= 8) {
+                        await ChatMessage.create({
+                            speaker: ChatMessage.getSpeaker({ actor: tActor }),
+                            rollMode: game.settings.get('core', 'rollMode'),
+                            flavor: "Mirror Image Result",
+                            content: "Mirror Image Blocks Attack! 1 Mirror Image Left"
+                          });
+                        await updateStacks(effect, 1);
+                        return false;
+                    }
+                }
+                else if(stacks === 1) {
+                    if(roll.total >= 11) {
+                        await ChatMessage.create({
+                            speaker: ChatMessage.getSpeaker({ actor: tActor }),
+                            rollMode: game.settings.get('core', 'rollMode'),
+                            flavor: "Mirror Image Result",
+                            content: "Mirror Image Blocks Attack! Mirror Image Spell expended"
+                          });
+                        await effect.delete();
+                        return false;
+                    }
+                }
+                await ChatMessage.create({
+                    speaker: ChatMessage.getSpeaker({ actor: tActor }),
+                    rollMode: game.settings.get('core', 'rollMode'),
+                    flavor: "Mirror Image Result",
+                    content: "Mirror Image Fails to Block Attack!"
+                  });
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    await updateStacks(effect, 3);
+
+    // Clean up hooks when spell ends
+    const onEndMirrorImage = async (args) => {
+        if (args.sourceName === "Mirror Image") {
+            console.log("Ending Effect");
+            Hooks.off("midi-qol.preambleComplete", ontargeting);
+            Hooks.off("deleteActiveEffect", onEndMirrorImage);
+        }
+    }
+
+    Hooks.on("midi-qol.preambleComplete", ontargeting);
+    Hooks.on("deleteActiveEffect", onEndMirrorImage);
+}
