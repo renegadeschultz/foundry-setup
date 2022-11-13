@@ -670,7 +670,7 @@ const mirrorImage = async (args) => {
 
     const updateStacks = async (effect, stacks) => {
         await effect.setFlag("dae", "stacks", stacks);
-        await effect.update({label: `Mirror Image (${stacks})`});
+        await effect.update({ label: `Mirror Image (${stacks})` });
     }
 
     const ontargeting = async (args) => {
@@ -684,19 +684,19 @@ const mirrorImage = async (args) => {
             let tActor = Array.from(args.targets)[0].actor;
             const cornerAdjust = 0.70710678118654750;
             const distanceToTarget = new Ray(args.token, Array.from(args.targets)[0]).distance;
-            const approxFtToTarget = Math.floor(distanceToTarget*cornerAdjust/canvas.grid.size)*canvas.grid.grid.options.dimensions.distance;
-            if(args.actor.system.attributes.senses.blindsight >= approxFtToTarget
-                 || args.actor.system.attributes.senses.tremorsense >= approxFtToTarget
-                 || args.actor.system.attributes.senses.truesight >= approxFtToTarget
-                 ||  args.actor.effects.contents.find(el => el.label == "Blinded")) {
-                    await ChatMessage.create({
-                        speaker: ChatMessage.getSpeaker({ actor: tActor }),
-                        rollMode: game.settings.get('core', 'rollMode'),
-                        flavor: "Mirror Image Result",
-                        content: "Attacker Does not rely on sight! Mirror Image has no effect!"
-                      });
-                      console.log("Attacker Does not rely on sight! Mirror Image has no effect!")
-                    return;
+            const approxFtToTarget = Math.floor(distanceToTarget * cornerAdjust / canvas.grid.size) * canvas.grid.grid.options.dimensions.distance;
+            if (args.actor.system.attributes.senses.blindsight >= approxFtToTarget
+                || args.actor.system.attributes.senses.tremorsense >= approxFtToTarget
+                || args.actor.system.attributes.senses.truesight >= approxFtToTarget
+                || args.actor.effects.contents.find(el => el.label == "Blinded")) {
+                await ChatMessage.create({
+                    speaker: ChatMessage.getSpeaker({ actor: tActor }),
+                    rollMode: game.settings.get('core', 'rollMode'),
+                    flavor: "Mirror Image Result",
+                    content: "Attacker Does not rely on sight! Mirror Image has no effect!"
+                });
+                console.log("Attacker Does not rely on sight! Mirror Image has no effect!")
+                return;
             }
 
             let effect = tActor.effects.contents.find(el => el.sourceName == "Mirror Image");
@@ -704,38 +704,38 @@ const mirrorImage = async (args) => {
                 let stacks = effect.flags.dae.stacks;
                 let roll = await new Roll("1d20").roll();
                 await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: tActor }), flavor: "Mirror Image" });
-                if(stacks === 3) {
-                    if(roll.total >= 6) {
+                if (stacks === 3) {
+                    if (roll.total >= 6) {
                         await ChatMessage.create({
                             speaker: ChatMessage.getSpeaker({ actor: tActor }),
                             rollMode: game.settings.get('core', 'rollMode'),
                             flavor: "Mirror Image Result",
                             content: "Mirror Image Blocks Attack! 2 Mirror Images Left"
-                          });
+                        });
                         await updateStacks(effect, 2);
                         return false;
                     }
                 }
-                else if(stacks === 2) {
-                    if(roll.total >= 8) {
+                else if (stacks === 2) {
+                    if (roll.total >= 8) {
                         await ChatMessage.create({
                             speaker: ChatMessage.getSpeaker({ actor: tActor }),
                             rollMode: game.settings.get('core', 'rollMode'),
                             flavor: "Mirror Image Result",
                             content: "Mirror Image Blocks Attack! 1 Mirror Image Left"
-                          });
+                        });
                         await updateStacks(effect, 1);
                         return false;
                     }
                 }
-                else if(stacks === 1) {
-                    if(roll.total >= 11) {
+                else if (stacks === 1) {
+                    if (roll.total >= 11) {
                         await ChatMessage.create({
                             speaker: ChatMessage.getSpeaker({ actor: tActor }),
                             rollMode: game.settings.get('core', 'rollMode'),
                             flavor: "Mirror Image Result",
                             content: "Mirror Image Blocks Attack! Mirror Image Spell expended"
-                          });
+                        });
                         await effect.delete();
                         return false;
                     }
@@ -745,7 +745,7 @@ const mirrorImage = async (args) => {
                     rollMode: game.settings.get('core', 'rollMode'),
                     flavor: "Mirror Image Result",
                     content: "Mirror Image Fails to Block Attack!"
-                  });
+                });
             }
         } catch (err) {
             console.error(err);
@@ -765,4 +765,42 @@ const mirrorImage = async (args) => {
 
     Hooks.on("midi-qol.preambleComplete", ontargeting);
     Hooks.on("deleteActiveEffect", onEndMirrorImage);
+}
+
+// ItemMacro - Call before the item is rolled
+const spikeGrowth = async () => {
+    const createHook = async (tile) => {
+        await tile.update({
+            'flags.monks-active-tiles': {
+                "active": true,
+                "record": false,
+                "restriction": "all",
+                "controlled": "all",
+                "trigger": "movement",
+                "allowpaused": false,
+                "usealpha": false,
+                "pointer": false,
+                "pertoken": false,
+                "minrequired": 0,
+                "chance": 100,
+                "fileindex": 1,
+                "actions": [{
+                    "action": "hurtheal",
+                    "data": {
+                        "entity": {
+                            "id": "token",
+                            "name": "Triggering Token"
+                        },
+                        "value": "-[[2d4[piercing]]]",
+                        "chatMessage": true,
+                        "rollmode": "roll"
+                    },
+                    "id": "Ks75oFdvOXxuSExG"
+                }],
+                "files": []
+            }
+        });
+    }
+
+    Hooks.once("createTile", createHook);
 }
