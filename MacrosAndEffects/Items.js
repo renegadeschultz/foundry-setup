@@ -90,16 +90,81 @@ const lightningRodBlast = async (args) => {
         if (workflow.hitTargets.size) {
             const [target] = workflow.hitTargets;
             const save = await new Roll(`1d20 + ${target.actor.system.abilities.str.save} + ${target.actor.system.abilities.str.saveBonus}`).roll();
-            if(save.total < 10+workflow.charges) {
-                await save.toMessage({ speaker: ChatMessage.getSpeaker({ actor: target.actor }), flavor: `Blasted back ${workflow.charges*5} ft` });
-                await game.macros.getName('Knockback').execute(canvas.tokens.controlled[0],[target], workflow.charges);
+            if (save.total < 10 + workflow.charges) {
+                await save.toMessage({ speaker: ChatMessage.getSpeaker({ actor: target.actor }), flavor: `Blasted back ${workflow.charges * 5} ft` });
+                await game.macros.getName('Knockback').execute(canvas.tokens.controlled[0], [target], workflow.charges);
             }
-            else{
+            else {
                 await save.toMessage({ speaker: ChatMessage.getSpeaker({ actor: workflow.actor }), flavor: `Resists being blasted back` });
             }
         }
         workflow = await game.macros.getName('Adjust Damage').execute({ workflow, newDamage: `${workflow.charges}d8` });
     }
+}
 
+// Item Macro - Return a Damage Bonus
+// Item Macro - After Active Effects
+const wandOfFireballs = async (args) => {
+    let workflow = MidiQOL.Workflow.getWorkflow(args[0].uuid);
 
+    const item = workflow.item;
+    if (args[0].macroPass === "DamageBonus" && item.system.uses.value > 0) {
+        const options = Array.fromRange(item.system.uses.value).reduce((acc, e) => {
+            return acc + `<option value="${e + 1}">${e + 1} extra </option>`;
+        }, "");
+        const extraCharges = await new Promise((resolve) => {
+            new Dialog({
+                title: "Consume Extra Charges?",
+                content: ` <p>Add <strong>${item.system.formula} ${workflow.defaultDamageType}</strong> damage per extra charge</p>
+            <form> <div class="form-group">
+            <label>Charges:</label>
+            <div class="form-fields">
+            <select>${options}</select>
+            </div></div></form>`,
+                buttons: {
+                    extra: {
+                        label: "Add Extra Charges",
+                        callback: (html) => { resolve(html[0].querySelector("select").value); }
+                    },
+                    noExtra: {
+                        label: "None",
+                        callback: () => { resolve(false); }
+                    }
+                },
+                default: "None",
+                close: () => { resolve(false); }
+            }).render(true);
+        });
+        if (!extraCharges) return;
+        const value = Number(extraCharges);
+        await item.update({ "system.uses.value": item.system.uses.value - value });
+        let extraDamageRoll = new Roll(item.system.formula);
+        extraDamageRoll.alter(value);
+
+        return { damageRoll: extraDamageRoll.formula, flavor: `Using ${value} extra charges` };
+    }
+    else if (args[0].macroPass === "postActiveEffects") {
+        if (item.system.uses.value === 0) {
+            let destroyRoll = await new Roll("1d20").roll();
+            await destroyRoll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: workflow.actor }), flavor: `Last Charge Expended` });
+            if (destroyRoll.total === 1) {
+                await ChatMessage.create({
+                    speaker: ChatMessage.getSpeaker({ actor: workflow.actor }),
+                    rollMode: game.settings.get('core', 'rollMode'),
+                    flavor: "Wand Overloaded",
+                    content: "Wand Crumbles into ashes and is destroyed!"
+                });
+                await workflow.actor.deleteEmbeddedDocuments('Item', [item.id]);
+            }
+            else {
+                await ChatMessage.create({
+                    speaker: ChatMessage.getSpeaker({ actor: workflow.actor }),
+                    rollMode: game.settings.get('core', 'rollMode'),
+                    flavor: "Wand Overloaded",
+                    content: "Wand saves against destruction!"
+                });
+            }
+        }
+        await game.macros.getName('Delete All Templates').execute();
+    }
 }

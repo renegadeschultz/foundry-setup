@@ -1,7 +1,7 @@
 
 // Change the damage of a given workflow using the given new damage
 const adjustDamage = async (args) => {
-    let { workflow, newDamage} = args[0];
+    let { workflow, newDamage } = args[0];
     let roll = new Roll(newDamage);
     if (workflow.isCritical) {
         // Multiply number of dice rolled by 2
@@ -61,9 +61,21 @@ const drawCircle = async (args) => {
     ]);
 }
 
+const deleteAllTokens = async () => {
+    const ids = canvas.scene.tokens.map(token => token.id);
+    await canvas.scene.deleteEmbeddedDocuments("Token", ids);
+}
+
+const deleteAllTemplates = async () => {
+    const ids = canvas.scene.templates.map(template => template.id);
+    await canvas.scene.deleteEmbeddedDocuments("MeasuredTemplate", ids);
+}
+
 export {
     adjustDamage,
     knockback,
     withinCanvas,
-    drawCircle
+    drawCircle,
+    deleteAllTemplates,
+    deleteAllTokens
 }
