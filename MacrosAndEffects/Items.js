@@ -168,3 +168,106 @@ const wandOfFireballs = async (args) => {
         await game.macros.getName('Delete All Templates').execute();
     }
 }
+
+const bladeOfManyEdges = async (args) => {
+    let workflow = MidiQOL.Workflow.getWorkflow(args[0].uuid);
+    console.log(args[0].macroPass);
+    console.log(workflow);
+
+    if (args[0].macroPass === "preItemRoll") {
+        workflow.preCharges = workflow.item.system.uses.value
+    }
+    if (args[0].macroPass === "preAttackRoll") {
+        if (workflow.item.system.uses.value !== workflow.preCharges) {
+            let option = await new Promise((resolve) => {
+                new Dialog({
+                    title: "Use a charge",
+                    buttons: {
+                        threefoldStrike: {
+                            label: "Threefold Strike",
+                            callback: () => { resolve("Threefold Strike"); }
+                        },
+                        oneThousandCuts: {
+                            label: "One Thousand Cuts",
+                            callback: () => { resolve("One Thousand Cuts"); }
+                        }
+                    },
+                    close: () => { resolve(false); }
+                }).render(true);
+            });
+
+            if (!option) {
+                return;
+            }
+            if (option === "Threefold Strike") {
+                const [target] = workflow.targets;
+                if (target.actor.system.attributes.senses.blindsight === 0
+                    && target.actor.system.attributes.senses.tremorsense === 0
+                    && target.actor.system.attributes.senses.truesight === 0
+                    && !target.actor.effects.contents.find(el => el.label == "Blinded")
+                ) {
+                    workflow.advantage = true;
+                    workflow.disadvantage = false;
+                    workflow.rollOptions.advantage = true
+                    workflow.rollOptions.disadvantage = false
+                    if (workflow.attackRoll) {
+                        workflow.attackRoll.options.advantageMode = 1;
+                    }
+                    if (workflow.attackAdvAttribution) {
+                        for (var attr in workflow.attackAdvAttribution) {
+                            if (workflow.attackAdvAttribution.hasOwnProperty(attr)) {
+                                delete workflow.attackAdvAttribution[attr];
+                            }
+                        }
+                    }
+                    delete workflow.actor.flags["midi-qol"].disadvantage;
+                    new Sequence()
+                        .effect()
+                        .atLocation(workflow.token)
+                        .stretchTo(target)
+                        .file("jb2a.sword.melee.01.white")
+                        .repeats(2, 200, 300)
+                        .randomizeMirrorY()
+                        .play();
+                    return;
+                }
+            }
+            else if (option === "One Thousand Cuts") {
+                let nextTo = MidiQOL.findNearby(-1, workflow.token, 5);
+                let failedSaves = await Promise.all(nextTo.map(async (target) => {
+                    if (target.actor.system.attributes.senses.blindsight === 0
+                        && target.actor.system.attributes.senses.tremorsense === 0
+                        && target.actor.system.attributes.senses.truesight === 0
+                        && !target.actor.effects.contents.find(el => el.label == "Blinded")
+                    ) {
+                        const saveDC = 15;
+                        let save = await new Roll(`1d20 + ${target.actor.system.abilities.wis.save} + ${target.actor.system.abilities.wis.saveBonus}`).roll();
+                        await save.toMessage({ speaker: ChatMessage.getSpeaker({ actor: target.actor }), flavor: `Save against One Thousand Cuts ${save.total < saveDC ? 'failed' : 'succeeded'}` });
+                        new Sequence()
+                        .effect()
+                        .atLocation(workflow.token)
+                        .stretchTo(target)
+                        .file("jb2a.sword.melee")
+                        .repeats(1, 200, 300)
+                        .randomizeMirrorY()
+                        .play();
+                        return save.total < saveDC ? target : null;
+                    }
+                    return null;
+                }));
+                console.log(nextTo, failedSaves);
+                let roll = new Roll("1d6[psychic]");
+                let damageTotal = await roll.roll().total;
+                await new MidiQOL.DamageOnlyWorkflow(
+                    workflow.actor,
+                    workflow.token,
+                    damageTotal,
+                    "psychic",
+                    failedSaves.filter(target => target),
+                    roll,
+                    { flavor: "One Thousand Cuts" }
+                );
+            }
+        }
+    }
+}
