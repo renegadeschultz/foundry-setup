@@ -349,59 +349,92 @@ const silence = async () => {
 const sleetStorm = async (args) => {
     let workflow = MidiQOL.Workflow.getWorkflow(args[0].uuid);
     const spellDC = workflow.actor.system.attributes.spelldc;
-    const createHook = async (tileEnter) => {
-        await tileEnter.update(
-            {
-                "flags.monks-active-tiles": {
-                    "active": true,
-                    "record": false,
-                    "restriction": "all",
-                    "controlled": "all",
-                    "trigger": "enter",
-                    "allowpaused": false,
-                    "usealpha": false,
-                    "pointer": false,
-                    "pertoken": false,
-                    "minrequired": 0,
-                    "chance": 100,
-                    "fileindex": -1,
-                    "actions": [
-                        {
-                            "action": "monks-tokenbar.requestroll",
-                            "data": {
-                                "entity": {
-                                    "id": "token",
-                                    "name": "Triggering Token"
-                                },
-                                "request": "ability:dex",
-                                "dc": spellDC,
-                                "flavor": "Trying not to slip",
-                                "rollmode": "roll",
-                                "silent": true,
-                                "fastforward": true,
-                                "usetokens": "fail",
-                                "continue": "failed"
-                            },
-                            "id": "eZErRLCh1S1LkzJL"
-                        },
-                        {
-                            "action": "activeeffect",
-                            "data": {
-                                "entity": {
-                                    "id": "token",
-                                    "name": "Triggering Token"
-                                },
-                                "effectid": "Convenient Effect: Prone",
-                                "addeffect": "add",
-                                "altereffect": ""
-                            },
-                            "id": "Bc7wo5mMx0AdluPV"
-                        }
-                    ],
-                    "files": []
-                }
+    const createHook = async (tile) => {
+        await tile.update({
+            'flags.monks-active-tiles': {
+                "active":true,
+                "record":false,
+                "restriction":"all",
+                "controlled":"all",
+                "trigger":["enter","turn"],
+                "allowpaused":true,
+                "usealpha":true,
+                "pointer":false,
+                "pertoken":false,
+                "minrequired":0,
+                "chance":100,
+                "fileindex":0,
+                "actions":[
+                    {
+                        "action":"delay",
+                        "data":{"delay":"1"},"id":"Zvn34rU955HmixUI"
+                    },
+                    {
+                        "action":"distance",
+                        "data":{"entity":"","measure":"lt","distance":{"value":1,"var":"sq"},"continue":"within"},"id":"ikuc47nv4g8SYZsG"
+                    },
+                    {
+                        "action":"runmacro",
+                        "data":{"entity":{"id":"Macro.Rc8zqfbwRLbEjQDj","name":"Mark Current Combatant"},"args":"","runasgm":"gm"},"id":"7mIV1No36uYemwTI"
+                    },
+                    {
+                        "action":"delay",
+                        "data":{"delay":"1"},"id":"Zun34rU955HmixUI"
+                    },
+                    {
+                        "action":"dfreds-convenient-effects.dfreds-filter",
+                        "data":{"entity":"","effect":"Current Combatant","filter":"yes","continue":"any"},"id":"d65xfgWApPZnvpxl"
+                    },
+                    {
+                        "action":"monks-tokenbar.requestroll",
+                        "data":{"entity":"","request":"save:dex","dc":spellDC,"flavor":"Trying to stay standing in Sleet Storm","rollmode":"roll","silent":true,"fastforward":true,"usetokens":"all","continue":"always"},"id":"pU8MP1zrzd6o77Zf"
+                    },
+                    {
+                        "action":"monks-tokenbar.filterrequest",
+                        "data":{"passed":"Concentrating","failed":"Fallen","resume":""},"id":"9bkmMa3mBGU6QIde"
+                    },
+                    {
+                        "action":"anchor",
+                        "data":{"tag":"Fallen","stop":false},"id":"j737yFyjKsnGof8o"
+                    },
+                    {
+                        "action":"dfreds-convenient-effects.dfreds-add","data":{"entity":"","effect":"Prone","state":"remove"},"id":"AWCbPxjpJBSzwdwO"
+                    },
+                    {
+                        "action":"dfreds-convenient-effects.dfreds-add","data":{"entity":"","effect":"Prone","state":"add"},"id":"wSlw3RxIQzfFcRVr"
+                    },
+                    {
+                        "action":"anchor",
+                        "data":{"tag":"Concentrating","stop":false},"id":"FN4ub2D8lBhwHwEK"
+                    },
+                    {
+                        "action":"dfreds-convenient-effects.dfreds-filter",
+                        "data":{"entity":"","effect":"Concentrating","filter":"yes","continue":"any"},"id":"uV3Lg7wn0r9suJxP"
+                    },
+                    {
+                        "action":"monks-tokenbar.requestroll",
+                        "data":{"entity":"","request":"save:con","dc":spellDC,"flavor":"Trying to maintain Concentration in Sleet Storm","rollmode":"roll","silent":true,"fastforward":true,"usetokens":"all","continue":"always"},"id":"W3ZY31C5hO8OqLBN"
+                    },
+                    {
+                        "action":"monks-tokenbar.filterrequest",
+                        "data":{"passed":"Maintain","failed":"Broken","resume":""},"id":"ysupPqT77HdoEhcI"
+                    },
+                    {
+                        "action":"anchor",
+                        "data":{"tag":"Broken","stop":false},"id":"4MmivFtK0vfZjaYi"
+                    },
+                    {
+                        "action":"dfreds-convenient-effects.dfreds-add",
+                        "data":{"entity":"","effect":"Concentrating","state":"remove"},"id":"Co0i3MlBeyJY1vXT"
+                    },
+                    {
+                        "action":"anchor",
+                        "data":{"tag":"Maintain","stop":false},"id":"U08IRMKYnDzVjhYv"
+                    }
+                ],
+                "files":[]
             }
-        );
+        });
     }
     Hooks.once("createTile", createHook);
 }
@@ -829,4 +862,62 @@ const sleep = (args) => {
             }
         }
     })
+}
+
+// ItemMacro - Call before the item is rolled
+const web = (args) => {
+    let workflow = MidiQOL.Workflow.getWorkflow(args[0].uuid);
+    const spellDC = workflow.actor.system.attributes.spelldc;
+    const createHook = async (tile) => {
+        console.log(tile);
+        await tile.update({
+            'flags.monks-active-tiles': {
+                "active": true,
+                "record": false,
+                "restriction": "all",
+                "controlled": "all",
+                "trigger": ["enter", "turn"],
+                "allowpaused": true,
+                "usealpha": false,
+                "pointer": false,
+                "pertoken": false,
+                "minrequired": 0,
+                "chance": 100,
+                "fileindex": 0,
+                "actions": [
+                    {
+                        "action": "distance",
+                        "data": { "entity": "", "measure": "lt", "distance": { "value": 1, "var": "sq" }, "continue": "within" }, "id": "4RKrMZiLnv16EtBy"
+                    },
+                    {
+                        "action": "runmacro",
+                        "data": { "entity": { "id": "Macro.Rc8zqfbwRLbEjQDj", "name": "Mark Current Combatant" }, "args": "", "runasgm": "gm" }, "id": "cTITAwaPHuvkjNZO"
+                    },
+                    {
+                        "action": "delay",
+                        "data": { "delay": "1" }, "id": "ju95WxkcXRbvVxV3"
+                    },
+                    {
+                        "action": "dfreds-convenient-effects.dfreds-filter",
+                        "data": { "entity": "", "effect": "Current Combatant", "filter": "yes", "continue": "any" }, "id": "rtmzeJ8Cb7efyCSR"
+                    },
+                    {
+                        "action": "dfreds-convenient-effects.dfreds-filter",
+                        "data": { "entity": "", "effect": "Restrained", "filter": "no", "continue": "any" }, "id": "Emgl225z9d8B5ukJ"
+                    },
+                    {
+                        "action": "monks-tokenbar.requestroll",
+                        "data": { "entity": "", "request": "save:dex", "dc": spellDC, "flavor": "Trying to move through Web", "rollmode": "roll", "silent": true, "fastforward": true, "usetokens": "fail", "continue": "failed" }, "id": "uO5ZNvVsrnvlqW5c"
+                    },
+                    {
+                        "action": "dfreds-convenient-effects.dfreds-add",
+                        "data": { "entity": "", "effect": "Restrained", "state": "add" }, "id": "C7aDm1ZYaYb29TBd"
+                    }
+                ],
+                "files": []
+            }
+        });
+    }
+
+    Hooks.once("createTile", createHook);
 }

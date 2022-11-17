@@ -71,11 +71,19 @@ const deleteAllTemplates = async () => {
     await canvas.scene.deleteEmbeddedDocuments("MeasuredTemplate", ids);
 }
 
+const markCurrentCombatant = async () => {
+    const currentCombatant = game.combat.turns[game.combat.turn];
+    const currentCombatantToken = canvas.tokens.get(currentCombatant.tokenId);
+
+    game.dfreds.effectInterface.addEffect({ effectName: 'Current Combatant', uuid: currentCombatantToken.actor.uuid });
+}
+
 export {
     adjustDamage,
     knockback,
     withinCanvas,
     drawCircle,
     deleteAllTemplates,
-    deleteAllTokens
+    deleteAllTokens,
+    markCurrentCombatant
 }
