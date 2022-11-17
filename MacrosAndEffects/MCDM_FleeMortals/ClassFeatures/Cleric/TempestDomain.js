@@ -48,8 +48,16 @@ const thunderboltStrike = async (args) => {
                 default: "Select"
             }).render(true);
         });
-        if(pushBack) {
-            await game.macros.getName('Knockback').execute(workflow.token,eligibleTargets, pushBack);
+        if (pushBack) {
+            await game.macros.getName('Knockback').execute(workflow.token, eligibleTargets, pushBack);
         }
+    }
+}
+
+// Call from flag - flags.midi-qol.optional.DivineStrike.macroToCall
+const divineStrike = async (args) => {
+    let workflow = MidiQOL.Workflow.getWorkflow(args[0].uuid);
+    if (workflow.isCritical) {
+        workflow = await game.macros.getName('Adjust Damage').execute({workflow, newDamage: workflow.damageRoll.formula});
     }
 }

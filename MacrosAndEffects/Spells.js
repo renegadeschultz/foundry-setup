@@ -804,3 +804,29 @@ const spikeGrowth = async () => {
 
     Hooks.once("createTile", createHook);
 }
+
+// ItemMacro - After Active Effects
+const sleep = (args) => {
+    let workflow = MidiQOL.Workflow.getWorkflow(args[0].uuid);
+    let sleepHp = workflow.damageTotal;
+    const targets = Array.from(workflow.targets).sort((a, b) => {
+        let aHealth = a.actor.system.attributes.hp.value + a.actor.system.attributes.hp.temp;
+        let bHealth = b.actor.system.attributes.hp.value + b.actor.system.attributes.hp.temp;
+        if (aHealth < bHealth) {
+            return -1;
+        }
+        if (aHealth > bHealth) {
+            return 1;
+        }
+        return 0;
+    });
+    targets.forEach(target => {
+        if (target.actor.system.details.type?.value !== "undead" && !target.actor.system.traits.ci.value.includes("charmed")) {
+            let targetHp = target.actor.system.attributes.hp.value + target.actor.system.attributes.hp.temp;
+            sleepHp -= targetHp;
+            if (sleepHp >= 0) {
+                game.dfreds.effectInterface.addEffect({ effectName: 'Unconscious', uuid: target.actor.uuid });
+            }
+        }
+    })
+}
