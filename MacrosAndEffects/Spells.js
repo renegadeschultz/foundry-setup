@@ -352,87 +352,87 @@ const sleetStorm = async (args) => {
     const createHook = async (tile) => {
         await tile.update({
             'flags.monks-active-tiles': {
-                "active":true,
-                "record":false,
-                "restriction":"all",
-                "controlled":"all",
-                "trigger":["enter","turn"],
-                "allowpaused":true,
-                "usealpha":true,
-                "pointer":false,
-                "pertoken":false,
-                "minrequired":0,
-                "chance":100,
-                "fileindex":0,
-                "actions":[
+                "active": true,
+                "record": false,
+                "restriction": "all",
+                "controlled": "all",
+                "trigger": ["enter", "turn"],
+                "allowpaused": true,
+                "usealpha": true,
+                "pointer": false,
+                "pertoken": false,
+                "minrequired": 0,
+                "chance": 100,
+                "fileindex": 0,
+                "actions": [
                     {
-                        "action":"delay",
-                        "data":{"delay":"1"},"id":"Zvn34rU955HmixUI"
+                        "action": "delay",
+                        "data": { "delay": "1" }, "id": "Zvn34rU955HmixUI"
                     },
                     {
-                        "action":"distance",
-                        "data":{"entity":"","measure":"lt","distance":{"value":1,"var":"sq"},"continue":"within"},"id":"ikuc47nv4g8SYZsG"
+                        "action": "distance",
+                        "data": { "entity": "", "measure": "lt", "distance": { "value": 1, "var": "sq" }, "continue": "within" }, "id": "ikuc47nv4g8SYZsG"
                     },
                     {
-                        "action":"runmacro",
-                        "data":{"entity":{"id":"Macro.Rc8zqfbwRLbEjQDj","name":"Mark Current Combatant"},"args":"","runasgm":"gm"},"id":"7mIV1No36uYemwTI"
+                        "action": "runmacro",
+                        "data": { "entity": { "id": "Macro.Rc8zqfbwRLbEjQDj", "name": "Mark Current Combatant" }, "args": "", "runasgm": "gm" }, "id": "7mIV1No36uYemwTI"
                     },
                     {
-                        "action":"delay",
-                        "data":{"delay":"1"},"id":"Zun34rU955HmixUI"
+                        "action": "delay",
+                        "data": { "delay": "1" }, "id": "Zun34rU955HmixUI"
                     },
                     {
-                        "action":"dfreds-convenient-effects.dfreds-filter",
-                        "data":{"entity":"","effect":"Current Combatant","filter":"yes","continue":"any"},"id":"d65xfgWApPZnvpxl"
+                        "action": "dfreds-convenient-effects.dfreds-filter",
+                        "data": { "entity": "", "effect": "Current Combatant", "filter": "yes", "continue": "any" }, "id": "d65xfgWApPZnvpxl"
                     },
                     {
-                        "action":"monks-tokenbar.requestroll",
-                        "data":{"entity":"","request":"save:dex","dc":spellDC,"flavor":"Trying to stay standing in Sleet Storm","rollmode":"roll","silent":true,"fastforward":true,"usetokens":"all","continue":"always"},"id":"pU8MP1zrzd6o77Zf"
+                        "action": "monks-tokenbar.requestroll",
+                        "data": { "entity": "", "request": "save:dex", "dc": spellDC, "flavor": "Trying to stay standing in Sleet Storm", "rollmode": "roll", "silent": true, "fastforward": true, "usetokens": "all", "continue": "always" }, "id": "pU8MP1zrzd6o77Zf"
                     },
                     {
-                        "action":"monks-tokenbar.filterrequest",
-                        "data":{"passed":"Concentrating","failed":"Fallen","resume":""},"id":"9bkmMa3mBGU6QIde"
+                        "action": "monks-tokenbar.filterrequest",
+                        "data": { "passed": "Concentrating", "failed": "Fallen", "resume": "" }, "id": "9bkmMa3mBGU6QIde"
                     },
                     {
-                        "action":"anchor",
-                        "data":{"tag":"Fallen","stop":false},"id":"j737yFyjKsnGof8o"
+                        "action": "anchor",
+                        "data": { "tag": "Fallen", "stop": false }, "id": "j737yFyjKsnGof8o"
                     },
                     {
-                        "action":"dfreds-convenient-effects.dfreds-add","data":{"entity":"","effect":"Prone","state":"remove"},"id":"AWCbPxjpJBSzwdwO"
+                        "action": "dfreds-convenient-effects.dfreds-add", "data": { "entity": "", "effect": "Prone", "state": "remove" }, "id": "AWCbPxjpJBSzwdwO"
                     },
                     {
-                        "action":"dfreds-convenient-effects.dfreds-add","data":{"entity":"","effect":"Prone","state":"add"},"id":"wSlw3RxIQzfFcRVr"
+                        "action": "dfreds-convenient-effects.dfreds-add", "data": { "entity": "", "effect": "Prone", "state": "add" }, "id": "wSlw3RxIQzfFcRVr"
                     },
                     {
-                        "action":"anchor",
-                        "data":{"tag":"Concentrating","stop":false},"id":"FN4ub2D8lBhwHwEK"
+                        "action": "anchor",
+                        "data": { "tag": "Concentrating", "stop": false }, "id": "FN4ub2D8lBhwHwEK"
                     },
                     {
-                        "action":"dfreds-convenient-effects.dfreds-filter",
-                        "data":{"entity":"","effect":"Concentrating","filter":"yes","continue":"any"},"id":"uV3Lg7wn0r9suJxP"
+                        "action": "dfreds-convenient-effects.dfreds-filter",
+                        "data": { "entity": "", "effect": "Concentrating", "filter": "yes", "continue": "any" }, "id": "uV3Lg7wn0r9suJxP"
                     },
                     {
-                        "action":"monks-tokenbar.requestroll",
-                        "data":{"entity":"","request":"save:con","dc":spellDC,"flavor":"Trying to maintain Concentration in Sleet Storm","rollmode":"roll","silent":true,"fastforward":true,"usetokens":"all","continue":"always"},"id":"W3ZY31C5hO8OqLBN"
+                        "action": "monks-tokenbar.requestroll",
+                        "data": { "entity": "", "request": "save:con", "dc": spellDC, "flavor": "Trying to maintain Concentration in Sleet Storm", "rollmode": "roll", "silent": true, "fastforward": true, "usetokens": "all", "continue": "always" }, "id": "W3ZY31C5hO8OqLBN"
                     },
                     {
-                        "action":"monks-tokenbar.filterrequest",
-                        "data":{"passed":"Maintain","failed":"Broken","resume":""},"id":"ysupPqT77HdoEhcI"
+                        "action": "monks-tokenbar.filterrequest",
+                        "data": { "passed": "Maintain", "failed": "Broken", "resume": "" }, "id": "ysupPqT77HdoEhcI"
                     },
                     {
-                        "action":"anchor",
-                        "data":{"tag":"Broken","stop":false},"id":"4MmivFtK0vfZjaYi"
+                        "action": "anchor",
+                        "data": { "tag": "Broken", "stop": false }, "id": "4MmivFtK0vfZjaYi"
                     },
                     {
-                        "action":"dfreds-convenient-effects.dfreds-add",
-                        "data":{"entity":"","effect":"Concentrating","state":"remove"},"id":"Co0i3MlBeyJY1vXT"
+                        "action": "dfreds-convenient-effects.dfreds-add",
+                        "data": { "entity": "", "effect": "Concentrating", "state": "remove" }, "id": "Co0i3MlBeyJY1vXT"
                     },
                     {
-                        "action":"anchor",
-                        "data":{"tag":"Maintain","stop":false},"id":"U08IRMKYnDzVjhYv"
+                        "action": "anchor",
+                        "data": { "tag": "Maintain", "stop": false }, "id": "U08IRMKYnDzVjhYv"
                     }
                 ],
-                "files":[]
+                "files": []
             }
         });
     }
@@ -920,4 +920,64 @@ const web = (args) => {
     }
 
     Hooks.once("createTile", createHook);
+}
+
+// ItemMacro - Call before the item is rolled
+const zephyrStrike = () => {
+    let workflow = MidiQOL.Workflow.getWorkflow(args[0].uuid);
+    const zephyrStrikeDamageBonus = async (args) => {
+        let damageRoll = await new Roll(`${args.isCritical ? 2 : 1}d8`).roll();
+        new MidiQOL.DamageOnlyWorkflow(args.actor, args.token, damageRoll.total, "force", Array.from(args.hitTargets), damageRoll, { flavor: "Zephyr Strike - Damage Roll (Force)", itemCardId: args.itemCardId })
+    }
+
+    const checkHit = async (args) => {
+        if (args.hitTargets.size) {
+            Hooks.once("midi-qol.preDamageRoll", zephyrStrikeDamageBonus);
+        }
+    }
+
+    const optionalZephyrStrike = async (args) => {
+        let effect = args.actor.effects.contents.find(el => el.label == "Zephyr Strike");
+        if (effect) {
+            let option = await new Promise((resolve) => {
+                new Dialog({
+                    title: "Use Zephyr Strike?",
+                    buttons: {
+                        yes: {
+                            label: "Yes",
+                            callback: () => { resolve(true); }
+                        },
+                        no: {
+                            label: "No",
+                            callback: () => { resolve(false); }
+                        }
+                    },
+                    close: () => { resolve(false); }
+                }).render(true);
+            });
+
+            if (!option) {
+                return;
+            }
+            args.advantage = true;
+            let effectData = game.dfreds.effectInterface.findEffectByName('Double Speed').convertToObject();
+            effectData.turns = 1;
+            game.dfreds.effectInterface.addEffectWith({ effectData, uuid: args.actor.uuid });
+            Hooks.once("midi-qol.AttackRollComplete", checkHit);
+            Hooks.off("midi-qol.preAttackRoll", optionalZephyrStrike);
+            Hooks.off("deleteActiveEffect", onEndSpell);
+        }
+    }
+
+    // Clean up hooks if concentration is lost before Attack is made
+    const onEndSpell = async (args) => {
+        if (args.label === "Zephyr Strike" && args.parent.name === workflow.actor.name) {
+            console.log("deleting Zephyr Strike Hook")
+            Hooks.off("midi-qol.preAttackRoll", optionalZephyrStrike);
+            Hooks.off("deleteActiveEffect", onEndSpell);
+        }
+    }
+
+    Hooks.on("deleteActiveEffect", onEndSpell);
+    Hooks.on("midi-qol.preAttackRoll", optionalZephyrStrike);
 }

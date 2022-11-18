@@ -78,6 +78,9 @@ const gatheredSwarm = async (args) => {
         const [target] = workflow.targets;
         const targetToken = canvas.tokens.get(target.id);
         let roll = new Roll(workflow.actor.system.scale.ranger.swarmkeeper ? workflow.actor.system.scale.ranger.swarmkeeper["gathered-swarm"] : "1d6");
+        if(workflow.isCritical) {
+            roll.alter(2);
+        }
         let damageTotal = await roll.roll().total;
         await new MidiQOL.DamageOnlyWorkflow(
             workflow.actor,
