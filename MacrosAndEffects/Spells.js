@@ -981,3 +981,131 @@ const zephyrStrike = () => {
     Hooks.on("deleteActiveEffect", onEndSpell);
     Hooks.on("midi-qol.preAttackRoll", optionalZephyrStrike);
 }
+
+// Automated Evocation - Exact Macro Name Should be: AE_Companion_Macro(Summon Beast)
+const summonBeast = async (args) => {
+    let { assignedActor, summon, spellLevel, duplicates } = args[0];
+
+    let option = await new Promise((resolve) => {
+        new Dialog({
+            title: "Spirit Type",
+            buttons: {
+                land: {
+                    label: "Land",
+                    callback: () => { resolve("Land"); }
+                },
+                air: {
+                    label: "Air",
+                    callback: () => { resolve("Air"); }
+                },
+                water: {
+                    label: "Water",
+                    callback: () => { resolve("Water"); }
+                }
+            },
+            close: () => { resolve(false); }
+        }).render(true);
+    });
+
+    if (!option) {
+        option = "Land";
+    }
+
+    // Delete bestial spirit token when active effect is deleted
+    const onEndSpell = async (args) => {
+        if (args.label === summon.name && args.parent.name === assignedActor.name) {
+            let token = canvas.scene.tokens.getName(`${args.label}(${option})(${args.parent.name})`)
+            await warpgate.dismiss(token.id, canvas.scene.id);
+            Hooks.off("deleteActiveEffect", onEndSpell);
+        }
+    }
+
+    Hooks.on("deleteActiveEffect", onEndSpell);
+    console.log(summon);
+    return {
+        token: {
+            "name": `${summon.name}(${option})(${assignedActor.name})`
+        },
+        actor: {
+            "name": `${summon.name}(${option})`,
+            "system": {
+                "attributes": {
+                    "ac": {
+                        "flat": summon.system.attributes.ac.flat + spellLevel
+                    },
+                    "hp": {
+                        "max": summon.system.attributes.hp.max + (option !== "Air" ? 10 : 0) + ((spellLevel - 2) * 5),
+                        "value": summon.system.attributes.hp.max + (option !== "Air" ? 10 : 0) + ((spellLevel - 2) * 5)
+                    },
+                    "movement": {
+                        "climb": option === "Land" ? 30 : 0,
+                        "fly": option === "Air" ? 60 : 0,
+                        "swim": option === "Water" ? 30 : 0,
+                    }
+                }
+            }
+        },
+        embedded: {
+            Item: {
+                "Maul": {
+                    "system.attackBonus": assignedActor.system.attributes.prof + assignedActor.system.abilities[assignedActor.system.attributes.spellcasting].mod - 2,
+                    "system.damage.parts": [[`1d8+4+${spellLevel}`, "piercing"]],
+                },
+                "Multiattack": {
+                    "system.description.value": `The beast makes ${Math.floor(spellLevel / 2)}  Maul attacks`,
+                }
+            }
+        }
+    }
+}
+
+
+// ItemMacro - Call before the item is rolled
+const sancutary = () => {
+    let workflow = MidiQOL.Workflow.getWorkflow(args[0].uuid);
+
+    const canAttack = async (args) => {
+        try {
+            // Check for targets
+            if (args.targets.size < 1) return;
+
+            if (!["creature", "enemy", ""].includes(args.item.system.target.type)) {
+                return;
+            }
+
+            let targets = Array.from(args.targets);
+            let canAttack = true;
+
+            await Promise.all(targets.map(async (target) => {
+                if (target.actor.effects.contents.find(el => el.label == "Sanctuary" && el.origin === workflow.item.uuid)) {
+                    let save = await new Roll(`1d20 + ${args.actor.system.abilities.wis.save} + ${args.actor.system.abilities.wis.saveBonus}`).roll();
+                    await save.toMessage({ speaker: ChatMessage.getSpeaker({ actor: args.actor }), flavor: `Save against Sanctuary` });
+                    if (save.total < workflow.actor.system.attributes.spelldc) {
+                        canAttack = false;
+                    }
+                }
+            }));
+            if (!canAttack) {
+                ui.notifications.warn(`Can't attack target with Sanctuary!`);
+            }
+            return canAttack;
+        } catch (err) {
+            console.log(err)
+            Hooks.off("midi-qol.preItemRoll", canAttack);
+            Hooks.off("deleteActiveEffect", onEndSpell);
+        }
+    }
+
+    // Clean up hooks if concentration is lost before Attack is made
+    const onEndSpell = async (args) => {
+        console.log(args.origin, workflow.item.uuid);
+        if (args.label === "Sanctuary" && args.origin === workflow.item.uuid) {
+            console.log("deleting Sancuary Hook")
+            Hooks.off("midi-qol.preItemRoll", canAttack);
+            Hooks.off("deleteActiveEffect", onEndSpell);
+        }
+    }
+
+    Hooks.on("deleteActiveEffect", onEndSpell);
+    Hooks.on("midi-qol.preItemRoll", canAttack);
+}

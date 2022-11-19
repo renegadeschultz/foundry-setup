@@ -11,7 +11,9 @@ const favoredFoe = async (args) => {
         return;
     }
     // Get damage formula
-    let damageBonusFormula = new Roll(args[0].actor.system.scale.ranger["favored-foe"]);
+    let damageDie = args[0].actor.system.scale?.ranger && args[0].actor.system.scale?.ranger["favored-foe"] ?
+        args[0].actor.system.scale?.ranger["favored-foe"] : "1d6";
+    let damageBonusFormula = new Roll(damageDie);
     if (args[0].isCritical) {
         damageBonusFormula.alter(2);
     }
