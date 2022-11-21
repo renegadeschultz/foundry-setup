@@ -1061,7 +1061,7 @@ const summonBeast = async (args) => {
 
 
 // ItemMacro - Call before the item is rolled
-const sancutary = () => {
+const sanctuary = () => {
     let workflow = MidiQOL.Workflow.getWorkflow(args[0].uuid);
 
     const canAttack = async (args) => {
@@ -1108,4 +1108,105 @@ const sancutary = () => {
 
     Hooks.on("deleteActiveEffect", onEndSpell);
     Hooks.on("midi-qol.preItemRoll", canAttack);
+}
+
+// ItemMacro - Call before the item is rolled
+const hailOfThorns = () => {
+    let workflow = MidiQOL.Workflow.getWorkflow(args[0].uuid);
+
+    const addThornBurst = async (args) => {
+        try {
+            // Check for targets
+            if (args.targets.size < 1) return;
+
+            if (args.item.system.actionType !== "rwak") return;
+
+            if (!args.actor.effects.contents.find(el => el.label == "Hail of Thorns" && el.origin === workflow.item.uuid)) return;
+
+            const [t] = args.hitTargets;
+            let targets = [...MidiQOL.findNearby(null, t, 5), t];
+            let saves = [];
+            await Promise.all(targets.map(async (target) => {
+                const saveDC = workflow.actor.system.attributes.spelldc;
+                let save = await new Roll(`1d20 + ${target.actor.system.abilities.dex.save} + ${target.actor.system.abilities.dex.saveBonus}`).roll();
+                const saved = save.total >= saveDC;
+                await save.toMessage({ speaker: ChatMessage.getSpeaker({ actor: target.actor }), flavor: `Save Hail of Thorns ${saved ? 'succeeded' : 'failed'}` });
+                if(saved) {
+                    saves.push(target);
+                }
+            }));
+            let damage = await new Roll(`${workflow.itemLevel}d10`).roll();
+            await damage.toMessage({ speaker: ChatMessage.getSpeaker({ actor: args.actor }), flavor: `Hail of Thorns Damage` });
+            await MidiQOL.applyTokenDamage( 
+                [{type: "piercing", damage: damage.total}], 
+                damage.total, 
+                new Set(targets), 
+                args.item, 
+                new Set(saves), 
+                {workflow: args});
+
+            new Sequence()
+                .effect()
+                .file('jb2a.explosion.shrapnel.bomb.01.green')
+                .scaleToObject(4)
+                .attachTo(t)
+                .play();
+
+            game.dfreds.effectInterface.removeEffect({ effectName: 'Concentrating', uuid: workflow.actor.uuid });
+            Hooks.off("midi-qol.preDamageRoll", addThornBurst);
+            Hooks.off("deleteActiveEffect", onEndSpell);
+        } catch (err) {
+            console.log(err)
+            Hooks.off("midi-qol.preDamageRoll", addThornBurst);
+            Hooks.off("deleteActiveEffect", onEndSpell);
+        }
+    }
+
+    // Clean up hooks if concentration is lost before an attack hits
+    const onEndSpell = async (args) => {
+        console.log(args.origin, workflow.item.uuid);
+        if (args.label === "Hail of Thorns" && args.origin === workflow.item.uuid) {
+            console.log("deleting Hail of Thorns Hook")
+            Hooks.off("midi-qol.preDamageRoll", addThornBurst);
+            Hooks.off("deleteActiveEffect", onEndSpell);
+        }
+    }
+
+    Hooks.on("deleteActiveEffect", onEndSpell);
+    Hooks.on("midi-qol.preDamageRoll", addThornBurst);
+}
+
+// Automated Evocation - Exact Macro Name Should be: AE_Companion_Macro(Dancing Lights)
+const dancingLights = async (args) => {
+    let { assignedActor, summon, spellLevel, duplicates } = args[0];
+    console.log("Here");
+    for(let i = 1; i<=4; i++){
+        const current = canvas.scene.tokens.getName(`${summon.name}(${assignedActor.name})`);
+
+        if (current) {
+            await warpgate.dismiss(current.id, canvas.scene.id);
+        }
+    }
+    
+    // Delete dancing light token when active effect is deleted
+    const onEndSpell = async (args) => {
+        if (args.label === summon.name && args.parent.name === assignedActor.name) {
+            for(let i = 1; i<=4; i++){
+                const current = canvas.scene.tokens.getName(`${args.label}(${args.parent.name})`);
+        
+                if (current) {
+                    await warpgate.dismiss(current.id, canvas.scene.id);
+                }
+            }
+            Hooks.off("deleteActiveEffect", onEndSpell);
+        }
+    }
+
+    Hooks.on("deleteActiveEffect", onEndSpell);
+
+    return {
+        token: {
+            "name": `${summon.name}(${assignedActor.name})`
+        }
+    }
 }
