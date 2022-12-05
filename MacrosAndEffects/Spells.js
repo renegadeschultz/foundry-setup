@@ -1131,19 +1131,19 @@ const hailOfThorns = () => {
                 let save = await new Roll(`1d20 + ${target.actor.system.abilities.dex.save} + ${target.actor.system.abilities.dex.saveBonus}`).roll();
                 const saved = save.total >= saveDC;
                 await save.toMessage({ speaker: ChatMessage.getSpeaker({ actor: target.actor }), flavor: `Save Hail of Thorns ${saved ? 'succeeded' : 'failed'}` });
-                if(saved) {
+                if (saved) {
                     saves.push(target);
                 }
             }));
             let damage = await new Roll(`${workflow.itemLevel}d10`).roll();
             await damage.toMessage({ speaker: ChatMessage.getSpeaker({ actor: args.actor }), flavor: `Hail of Thorns Damage` });
-            await MidiQOL.applyTokenDamage( 
-                [{type: "piercing", damage: damage.total}], 
-                damage.total, 
-                new Set(targets), 
-                args.item, 
-                new Set(saves), 
-                {workflow: args});
+            await MidiQOL.applyTokenDamage(
+                [{ type: "piercing", damage: damage.total }],
+                damage.total,
+                new Set(targets),
+                args.item,
+                new Set(saves),
+                { workflow: args });
 
             new Sequence()
                 .effect()
@@ -1180,20 +1180,20 @@ const hailOfThorns = () => {
 const dancingLights = async (args) => {
     let { assignedActor, summon, spellLevel, duplicates } = args[0];
     console.log("Here");
-    for(let i = 1; i<=4; i++){
+    for (let i = 1; i <= 4; i++) {
         const current = canvas.scene.tokens.getName(`${summon.name}(${assignedActor.name})`);
 
         if (current) {
             await warpgate.dismiss(current.id, canvas.scene.id);
         }
     }
-    
+
     // Delete dancing light token when active effect is deleted
     const onEndSpell = async (args) => {
         if (args.label === summon.name && args.parent.name === assignedActor.name) {
-            for(let i = 1; i<=4; i++){
+            for (let i = 1; i <= 4; i++) {
                 const current = canvas.scene.tokens.getName(`${args.label}(${args.parent.name})`);
-        
+
                 if (current) {
                     await warpgate.dismiss(current.id, canvas.scene.id);
                 }
@@ -1209,4 +1209,349 @@ const dancingLights = async (args) => {
             "name": `${summon.name}(${assignedActor.name})`
         }
     }
+}
+
+// Automated Evocation - Exact Macro Name Should be: AE_Companion_Macro(Bestial Spirit)
+const summonLightSpirit = async (args) => {
+    let { assignedActor, summon, spellLevel, duplicates } = args[0];
+
+    let option = await new Promise((resolve) => {
+        new Dialog({
+            title: "Spirit Type",
+            buttons: {
+                courage: {
+                    label: "Courage",
+                    callback: () => { resolve("Courage"); }
+                },
+                hope: {
+                    label: "Hope",
+                    callback: () => { resolve("Hope"); }
+                },
+                peace: {
+                    label: "Peace",
+                    callback: () => { resolve("Peace"); }
+                }
+            },
+            close: () => { resolve(false); }
+        }).render(true);
+    });
+
+    if (!option) {
+        option = "Courage";
+    }
+
+    // Delete light spirit token when active effect is deleted
+    const onEndSpell = async (args) => {
+        if (args.label === summon.name && args.parent.name === assignedActor.name) {
+            let token = canvas.scene.tokens.getName(`${args.label}(${option})(${args.parent.name})`)
+            await warpgate.dismiss(token.id, canvas.scene.id);
+            Hooks.off("deleteActiveEffect", onEndSpell);
+        }
+    }
+
+    Hooks.on("deleteActiveEffect", onEndSpell);
+
+    let lightColor;
+    if (option === "Courage") {
+        lightColor = "#ff9548"
+    }
+    else if (option === "Hope") {
+        lightColor = "#fafae5"
+    }
+    else if (option === "Peace") {
+        lightColor = "#6dffff";
+    }
+
+    return {
+        token: {
+            "name": `${summon.name}(${option})(${assignedActor.name})`,
+            "light.color": lightColor,
+            "texture.src": summon.prototypeToken.texture.src.replace("*", option)
+        },
+        actor: {
+            "name": `${summon.name}(${option})`,
+            "img": summon.img.replace("Courage", option),
+            "system": {
+                "attributes": {
+                    "ac": {
+                        "flat": summon.system.attributes.ac.flat + spellLevel
+                    },
+                    "hp": {
+                        "max": summon.system.attributes.hp.max + ((spellLevel - 3) * 10) + assignedActor.system.abilities[assignedActor.system.attributes.spellcasting].mod,
+                        "value": summon.system.attributes.hp.max + ((spellLevel - 3) * 10) + assignedActor.system.abilities[assignedActor.system.attributes.spellcasting].mod
+                    }
+                }
+            }
+        },
+        embedded: {
+            Item: {
+                "Searing Radiance": {
+                    "system.damage.parts": [[`1d8+3+${spellLevel}`, option === "Courage" ? "fire" : "radiant"]],
+                },
+                "Multiattack": {
+                    "system.description.value": `The light spirit makes ${Math.floor(spellLevel / 2)}  Searing Radiance attacks`,
+                },
+                "Peaceful Aura(Peace Only)": option !== "Peace" ? warpgate.CONST.DELETE : {
+                    "name": "Peaceful Aura",
+                    "system.save.dc": assignedActor.system.attributes.spelldc
+                },
+                "Candle of Hope(Hope Only)": option !== "Hope" ? warpgate.CONST.DELETE : {
+                    "name": "Candle of Hope"
+                },
+                "Fire Within(Courage Only)": option !== "Courage" ? warpgate.CONST.DELETE : {
+                    "name": "Fire Within"
+                }
+            }
+        }
+    }
+}
+
+// Passive effect flags.midi-qol.onUseMacroName CUSTOM Candle of Hope,postActiveEffects
+const lightSpritCandleOfHope = async (args) => {
+    console.log("candle of hope", args)
+    let workflow = MidiQOL.Workflow.getWorkflow(args[0].uuid);
+    if (workflow.damageDetail.find(i => ["healing"].includes(i.type))) {
+        workflow.damageList.forEach(async target => {
+            if (target.oldHP === 0) {
+                let curTarget = [...workflow.targets].find(t => t.document.uuid === target.tokenUuid);
+                if (curTarget.actor.effects.contents.find(el => el.label == "Candle of Hope")) {
+                    await new Roll(`${workflow.damageRoll._formula}${workflow.bonusDamageRoll ? ` + ${workflow.bonusDamageRoll._formula}` : ""}`).evaluate({ maximize: true });
+                    let bonusHeal = maxHeal.total - target.totalDamage;
+                    await ChatMessage.create({
+                        speaker: ChatMessage.getSpeaker({ actor: curTarget.actor }),
+                        rollMode: game.settings.get('core', 'rollMode'),
+                        flavor: "Candle of Hope Bonus Healing",
+                        content: `${bonusHeal} extra healing`
+                    });
+                    await MidiQOL.applyTokenDamage(
+                        [{ type: "healing", damage: bonusHeal }],
+                        bonusHeal,
+                        new Set([curTarget]),
+                        workflow.item,
+                        new Set(),
+                        { workflow: workflow });
+                }
+            }
+        })
+    }
+}
+
+// Passive effect flags.midi-qol.onUseMacroName CUSTOM Candle of Hope,preItemRoll
+const lightSpritPeacefulAura = async (args) => {
+    let workflow = MidiQOL.Workflow.getWorkflow(args[0].uuid);
+    if (workflow.item.system.damage.parts.length > 0 && workflow.item.system.damage.parts.find(d => !["healing", "midi-none", "temphp", ""].includes(d[1]))) {
+        let peacefulAuraEffect = workflow.token.document.actorData.effects.find(el => el.label === "Peaceful Aura Immunity")
+        if (!peacefulAuraEffect) {
+            let saveDC = 15; // Update this to summoner's saveDC
+            let save = await new Roll(`1d20 + ${workflow.actor.system.abilities.wis.save} + ${workflow.actor.system.abilities.wis.saveBonus}`).roll();
+            await save.toMessage({ speaker: ChatMessage.getSpeaker({ actor: workflow.actor }), flavor: `Save against Peaceful Aura ${save.total < saveDC ? 'failed' : 'succeeded'}` });
+            if (save.total < saveDC) {
+                ui.notifications.info(`Peaceful Aura prevents ${workflow.actor.name} from attacking`);
+                return false;
+            }
+            else {
+                const effectData = {
+                    name: "Peaceful Aura Immunity"
+                }
+                await game.dfreds.effectInterface.addEffectWith({ effectData, uuid: workflow.actor.uuid });
+            }
+        }
+    }
+}
+
+// ItemMacro preCheckHist, DamageBonus, and postActiveEffects
+const greenFlameBlade = async (args) => {
+    let workflow = MidiQOL.Workflow.getWorkflow(args[0].uuid);
+    const filteredWeapons = workflow.actor.items
+        .filter((i) => i.type === "weapon" && i.system.actionType === "mwak");
+    const weapons = (filteredWeapons.length > 0)
+        ? filteredWeapons
+        : workflow.actor.itemTypes.weapon;
+
+    const weapon_content = weapons.map((w) => `<option value=${w.id}>${w.name}</option>`).join("");
+    console.log(args[0].macroPass)
+    if (args[0].macroPass === "preCheckHits") {
+        const content = `
+                <div class="form-group">
+                <label>Weapons : </label>
+                <select name="weapons">
+                ${weapon_content}
+                </select>
+                </div>
+                `;
+
+        await new Promise((resolve) => {
+            new Dialog({
+                title: "Choose a weapon",
+                content,
+                buttons: {
+                    Ok: {
+                        label: "Ok",
+                        callback: async (html) => {
+                            const itemId = html.find("[name=weapons]")[0].value;
+                            const weaponItem = actor.getEmbeddedDocument("Item", itemId);
+                            workflow.weaponItem = weaponItem;
+                            await ChatMessage.create({
+                                content: weaponItem.name + " is empowered by Green Flame Blade",
+                            });
+                            let ability = weaponItem.system.ability && weaponItem.system.ability !== "" ? weaponItem.system.ability : "str";
+                            let attackRollParts = workflow.attackRoll.formula.split(" ");
+                            attackRollParts[attackRollParts.length - 3] = workflow.actor.system.abilities[ability].mod;
+                            attackRollParts = attackRollParts.filter(part => part !== '-');
+                            let attackRoll = await new Roll(`${attackRollParts.join(" ")}`).roll();
+                            workflow.attackRoll = attackRoll;
+                            workflow.attackTotal = attackRoll.total;
+                            workflow.attackRollHTML = await workflow.attackRoll.render();
+                            workflow.isCritical = attackRoll.result[0] === "2";
+                            workflow.isFumble = attackRoll.result[0] === "1" && attackRoll.result[1] === " ";
+                            resolve()
+                        },
+                    },
+                    Cancel: {
+                        label: `Cancel`,
+                        callback: () => { resolve(false); }
+                    },
+                },
+                close: () => { resolve(false); }
+            }).render(true)
+        });
+
+    }
+
+    if (args[0].macroPass === "DamageBonus") {
+        let weaponItem = workflow.weaponItem;
+        let ability = weaponItem.system.ability && weaponItem.system.ability !== "" ? weaponItem.system.ability : "str";
+        let mod = workflow.actor.system.abilities[ability].mod;
+        let formula = workflow.isVersatile ? weaponItem.system.damage.versatile : weaponItem.system.damage.parts[0][0];
+        let damageRoll = new Roll(formula.replace("@mod", mod));
+        if(workflow.isCritical){
+            damageRoll.alter(2)
+        }
+        await damageRoll.roll();
+        await damageRoll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: workflow.actor }), flavor: `${weaponItem.name} damage` });
+        return { damageRoll: damageRoll.total, flavor: `Weapon Damage` };
+    }
+
+    if (args[0].macroPass === "postActiveEffects") {
+        let [target] = workflow.hitTargets;
+        let nextTo = MidiQOL.findNearby(1, target, 5);
+        if (nextTo.length > 0) {
+            const target_content = nextTo.map((w, index) => `<option value=${index}>${w.name}</option>`).join("");
+            console.log(args[0].macroPass)
+            const content = `
+                <div class="form-group">
+                <label>Targets : </label>
+                <select name="targets">
+                ${target_content}
+                </select>
+                </div>
+                `;
+            await new Promise((resolve) => {
+                new Dialog({
+                    title: "Choose a secondary target",
+                    content,
+                    buttons: {
+                        Ok: {
+                            label: "Ok",
+                            callback: async (html) => {
+                                const index = html.find("[name=targets]")[0].value;
+                                const targetToken = nextTo[index];
+                                const mod = workflow.actor.system.abilities[workflow.actor.system.attributes.spellcasting].mod;
+                                let flameDamage = await new Roll(`${workflow.damageRoll._formula} + ${mod}`).roll();
+                                await ChatMessage.create({
+                                    speaker: ChatMessage.getSpeaker({ actor: targetToken.actor }),
+                                    rollMode: game.settings.get('core', 'rollMode'),
+                                    flavor: "Green Flame leaps to deal damage to second target",
+                                    content: `${flameDamage.total} fire damage`
+                                });
+                                await MidiQOL.applyTokenDamage(
+                                    [{ type: "fire", damage: flameDamage.total }],
+                                    flameDamage.total,
+                                    new Set([targetToken]),
+                                    workflow.item,
+                                    new Set(), { workflow:workflow});
+                                new Sequence()
+                                    .effect()
+                                    .atLocation(target)
+                                    .stretchTo(targetToken)
+                                    .file("jb2a.fire_bolt.green02.05ft")
+                                    .play();
+                                resolve();
+                            },
+                        },
+                        Cancel: {
+                            label: `Cancel`,
+                            callback: () => { resolve(false); }
+                        },
+                    },
+                    close: () => { resolve(false); }
+                }).render(true)
+            });
+        }
+    }
+}
+
+// ItemMacro After Active Effects.
+const dawnBlade = async (args) => {
+    let workflow = MidiQOL.Workflow.getWorkflow(args[0].uuid);
+    const spellLevel = workflow.itemLevel;
+    if (workflow.itemLevel && workflow.itemLevel > 2) {
+        const dawnBlade = actor.items.find((i) => i.type === "weapon" && i.name === "Dawn Blade");
+        let weaponCopy = duplicate(dawnBlade);
+        const extraDamageDice = Math.floor((spellLevel - 1) / 2);
+        weaponCopy.system.damage.parts[0][0] = `${Math.min(extraDamageDice + 2, 5)}d8`;
+        weaponCopy.system.description.value = weaponCopy.system.description.value.replace(
+            "the caster can see 5ft through magical darkness",
+            `the caster can see ${(extraDamageDice * 5) + 5}ft through magical darkness`
+        ).replace("It deals 2d8 psychic damage", `It deals ${weaponCopy.system.damage.parts[0][0]} psychic damage`);
+        await actor.updateEmbeddedDocuments("Item", [weaponCopy]);
+    }
+}
+
+// ItemMacro After Active Effects.
+const shadowBlade = async (args) => {
+    let workflow = MidiQOL.Workflow.getWorkflow(args[0].uuid);
+    const spellLevel = workflow.itemLevel;
+    if (workflow.itemLevel && workflow.itemLevel > 2) {
+        const shadowBlade = actor.items.find((i) => i.type === "weapon" && i.name === "Shadow Blade");
+        let weaponCopy = duplicate(shadowBlade);
+        const extraDamageDice = Math.floor((spellLevel - 1) / 2);
+        weaponCopy.system.damage.parts[0][0] = `${Math.min(extraDamageDice + 2, 5)}d8`;
+        weaponCopy.system.description.value = weaponCopy.system.description.value.replace("It deals 2d8 psychic damage", `It deals ${weaponCopy.system.damage.parts[0][0]} psychic damage`);
+        await actor.updateEmbeddedDocuments("Item", [weaponCopy]);
+    }
+}
+
+// ItemMacro - After Active Effects
+const borrowedKnowledge = async (args) => {
+    let workflow = MidiQOL.Workflow.getWorkflow(args[0].uuid);
+    const nonProfSkills = Object.keys(workflow.actor.system.skills).filter(s => workflow.actor.system.skills[s].proficient === 0);
+    console.log(nonProfSkills);
+    const skill_content = nonProfSkills.map((s) => `<option value=${s}>${CONFIG.DND5E.skills[s].label}</option>`).join("");
+    const content = `
+                <div class="form-group">
+                <label>Skills : </label>
+                <select name="skills">
+                ${skill_content}
+                </select>
+                </div>
+                `;
+    await new Promise((resolve) => {
+        new Dialog({
+            title: "Choose a skill",
+            content,
+            buttons: {
+                Ok: {
+                    label: "Ok",
+                    callback: async (html) => {
+                        const skill = html.find("[name=skills]")[0].value;
+                        let effect = duplicate(workflow.actor.effects.contents.find(ae => ae.label === "Borrowed Knowledge"));
+                        effect.changes[0].key = `system.skills.${skill}.value`;
+                        await actor.updateEmbeddedDocuments("ActiveEffect", [effect]);
+                    },
+                }
+            },
+            close: () => { resolve(false); }
+        }).render(true)
+    });
 }

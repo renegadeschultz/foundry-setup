@@ -52,7 +52,7 @@ const divineSmite = async (args) => {
 
     //check if it does bonus damage(fiends and undead)
     let targetType = target.actor.type === "character" ? target.actor.system.details.race : target.actor.system.details.type.value;
-    let bonus = ["undead", "fiend"].some(i => targetType.toLowerCase().includes(i));
+    let bonus = ["undead", "fiend"].some(i => targetType?.toLowerCase().includes(i));
 
     let totalDice = (2 + spellLevelBonus + (bonus ? 1 : 0)) * (args[0].isCritical ? 2 : 1);
 

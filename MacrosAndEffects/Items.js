@@ -1,6 +1,6 @@
 // Figurine of Wondrous Power (Silver Raven) - ItemMacro - After Active Effects
 const figurineOfWondrousPowerRaven = async () => {
-    const actorName = "Raven";
+    const actorName = "Silver Raven";
     const owner = canvas.tokens.controlled[0];
     let position = await warpgate.crosshairs.show({
         size: 1,
@@ -270,4 +270,27 @@ const bladeOfManyEdges = async (args) => {
             }
         }
     }
+}
+
+
+// ItemMacro - return a damage bonus
+const demolishersHammer = async (args) => {
+    //make sure, we have a hit Target
+    if (!args[0].hitTargets.length) {
+        return;
+    }
+
+    let [target] = args[0].hitTargets;
+
+    //check for invalid target type 
+    console.log(target.actor);
+    let targetType = target.actor.type === "character" ? target.actor.system.details.race : target.actor.system.details.type?.value;
+    let isConstruct = ["construct"].some(i => targetType ? targetType.toLowerCase().includes(i): false);
+    if (!isConstruct) return;
+
+    // Get damage formula
+    let dieCount = args[0].isCritical ? 2: 1
+    let dieType = args[0].isVersatile ? 10 : 8;
+
+    return { damageRoll: `${dieCount}d${dieType}`, flavor: "Demolition" };
 }
